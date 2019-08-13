@@ -306,6 +306,203 @@ me} is ${action}`;\nconsole.log( message )\n      }\n    '
 
 #### Step-6
 
+实现 Step-3 
+
+```
+const fs = require('fs')
+const path = require('path')
+
+let ID = 0
+
+function getDependencies(str) {
+  let reg = /require\(['"](.+?)['"]\)/g;
+  let result = null;
+  let dependencies = [];
+  while(result = reg.exec(str)) {
+    dependencies.push(result[1]);
+  }
+  return dependencies;
+}
+
+function createAsset(filename) {
+  let fileContent = fs.readFileSync(filename, 'utf-8');
+  const id = ID++;
+  return {
+    id: id,
+    filename: filename,
+    dependencies: getDependencies(fileContent),
+    code: `function(require, exports, module) { 
+        ${fileContent}
+    }`
+  }
+}
+
+function createGraph(filename) {
+  let asset = createAsset(filename)
+  //对象变数组
+  let queue = [asset]
+
+  for(let asset of queue) {
+    //获取当前文件所在的目录名，'./src/index.js' => './src'
+    const dirname = path.dirname(asset.filename)
+    asset.mapping = {}
+    asset.dependencies.forEach(relativePath => {
+      //createAsset()中的 readFileSync 读取文件，必须传入的是绝对路径，否则找不到
+      //拼接路径，absolutePath = './src/action.js'
+      const absolutePath = path.join(dirname, relativePath)
+      //解析 './src/action.js' 这个文件
+      const child = createAsset(absolutePath)
+      //构造 {'./action':1, ...}
+      asset.mapping[relativePath] = child.id
+      //把解析好的模块放入到这个数组中
+      queue.push(child)
+    })
+  }
+  
+  return queue
+}
+
+let result = createGraph('./src/index.js')
+console.log(result)
+```
+测试
+
+输出结果
+```
+[ { id: 0,
+    filename: './src/index.js',
+    dependencies: [ './action.js', './name.js' ],
+    code:
+     'function(require, exports, module) { \n        let action = require(\'./action.js\').action;\nlet name = require(\'./name.js\').name;\n\nlet message = `${name} 
+is ${action}`;\nconsole.log( message )\n    }',
+    mapping: { './action.js': 1, './name.js': 2 } },
+  { id: 1,
+    filename: 'src/action.js',
+    dependencies: [],
+    code:
+     'function(require, exports, module) { \n        let action = \'making webpack\'\n\nexports.action = action\n    }',
+    mapping: {} },
+  { id: 2,
+    filename: 'src/name.js',
+    dependencies: [ './family-name.js' ],
+    code:
+     'function(require, exports, module) { \n        let familyName = require(\'./family-name.js\').name\n\nexports.name = `${familyName} ming`\n    }',
+    mapping: { './family-name.js': 3 } },
+  { id: 3,
+    filename: 'src/family-name.js',
+    dependencies: [],
+    code:
+     'function(require, exports, module) { \n        exports.name = \'xiao\'\n    }',
+    mapping: {} } ]
+```
+
+
+#### Step-7
+
+实现 Step-3,并打包到一个文件中
+
+```
+const fs = require('fs');
+const path = require('path');
+
+let ID = 0;
+
+function getDependencies(str) {
+  let reg = /require\(['"](.+?)['"]\)/g;
+  let result = null;
+  let dependencies = [];
+  while(result = reg.exec(str)) {
+    dependencies.push(result[1]);
+  }
+  return dependencies;
+}
+
+function createAsset(filename) {
+  let fileContent = fs.readFileSync(filename, 'utf-8');
+  const id = ID++;
+  return {
+    id: id,
+    filename: filename,
+    dependencies: getDependencies(fileContent),
+    code: `function(require, exports, module) { 
+        ${fileContent}
+    }`
+  }
+}
+
+function createGraph(filename) {
+  let asset = createAsset(filename);
+  let queue = [asset];
+  
+  for(let asset of queue) {
+    const dirname = path.dirname(asset.filename);
+    asset.mapping = {};
+    asset.dependencies.forEach(relativePath => {
+      const absolutePath = path.join(dirname, relativePath);
+      const child = createAsset(absolutePath);
+      asset.mapping[relativePath] = child.id;
+      queue.push(child);
+    });
+
+  }
+
+  return queue;
+}
+
+//打包生成一个文件,把内容放到这个文件中
+function createBundle(graph) {
+  //生成 modules
+  let modules = ''
+
+  graph.forEach(mod => {
+    modules += `
+      ${mod.id}: [
+        ${mod.code},
+        ${JSON.stringify(mod.mapping)}
+      ],
+    `
+  })
+
+  //立即执行函数
+  const result = `
+    (
+      function(modules) {
+        function exec(id) {
+          let [fn, mapping] = modules[id]
+          console.log(fn, mapping)
+          let exports = { exports: {} }
+        
+          fn && fn(require, module.exports, module)
+        
+          function require(path) {
+            return exec(mapping[path])
+          }
+
+          return module.exports
+        }
+        exec(0)
+      }
+    )
+    (
+      {${modules}}
+    )
+  `
+  //console.log(modules)
+  fs.writeFileSync('./dist/bundle.js', result)
+  //console.log(result)
+
+}
+
+let graph = createGraph('./src/index.js')
+createBundle(graph)
+```
+
+测试
+
+执行`node Step_4-7.js`生成 bundle.js, 在 dist 下执行`node bundle.js`,会输出 'xiao ming is making webpack'
+
+
+
 
 
 

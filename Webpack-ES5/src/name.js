@@ -1,3 +1,3 @@
-let familyName = require('./family-name').name
+let familyName = require('./family-name.js').name
 
 exports.name = `${familyName} ming`

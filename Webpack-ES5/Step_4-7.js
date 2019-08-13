@@ -69,8 +69,10 @@ let result = createAsset('./src/index.js')
 console.log(result)
 */
 
+
+/*
 //Step-6
-//创建
+//实现 Step-3 中的 modules 
 const fs = require('fs')
 const path = require('path')
 
@@ -104,7 +106,6 @@ function createGraph(filename) {
   //对象变数组
   let queue = [asset]
 
-  //遍历第一次后，数组会增加两项，for...of... 下次解析时，从第二个开始遍历
   for(let asset of queue) {
     //获取当前文件所在的目录名，'./src/index.js' => './src'
     const dirname = path.dirname(asset.filename)
@@ -119,7 +120,6 @@ function createGraph(filename) {
       asset.mapping[relativePath] = child.id
       //把解析好的模块放入到这个数组中
       queue.push(child)
-      console.log(queue)
     })
   }
   
@@ -128,6 +128,103 @@ function createGraph(filename) {
 
 let result = createGraph('./src/index.js')
 console.log(result)
+*/
+
+//Step-7
+//实现 Step-3,并打包到一个文件中
+const fs = require('fs');
+const path = require('path');
+
+let ID = 0;
+
+function getDependencies(str) {
+  let reg = /require\(['"](.+?)['"]\)/g;
+  let result = null;
+  let dependencies = [];
+  while(result = reg.exec(str)) {
+    dependencies.push(result[1]);
+  }
+  return dependencies;
+}
+
+function createAsset(filename) {
+  let fileContent = fs.readFileSync(filename, 'utf-8');
+  const id = ID++;
+  return {
+    id: id,
+    filename: filename,
+    dependencies: getDependencies(fileContent),
+    code: `function(require, exports, module) { 
+        ${fileContent}
+    }`
+  }
+}
+
+function createGraph(filename) {
+  let asset = createAsset(filename);
+  let queue = [asset];
+  
+  for(let asset of queue) {
+    const dirname = path.dirname(asset.filename);
+    asset.mapping = {};
+    asset.dependencies.forEach(relativePath => {
+      const absolutePath = path.join(dirname, relativePath);
+      const child = createAsset(absolutePath);
+      asset.mapping[relativePath] = child.id;
+      queue.push(child);
+    });
+
+  }
+
+  return queue;
+}
+
+//打包生成一个文件,把内容放到这个文件中
+function createBundle(graph) {
+  //生成 modules
+  let modules = ''
+
+  graph.forEach(mod => {
+    modules += `
+      ${mod.id}: [
+        ${mod.code},
+        ${JSON.stringify(mod.mapping)}
+      ],
+    `
+  })
+
+  //立即执行函数
+  const result = `
+    (
+      function(modules) {
+        function exec(id) {
+          let [fn, mapping] = modules[id]
+          console.log(fn, mapping)
+          let exports = { exports: {} }
+        
+          fn && fn(require, module.exports, module)
+        
+          function require(path) {
+            return exec(mapping[path])
+          }
+
+          return module.exports
+        }
+        exec(0)
+      }
+    )
+    (
+      {${modules}}
+    )
+  `
+  //console.log(modules)
+  fs.writeFileSync('./dist/bundle.js', result)
+  //console.log(result)
+
+}
+
+let graph = createGraph('./src/index.js')
+createBundle(graph)
 
 
 
