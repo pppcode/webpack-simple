@@ -510,7 +510,7 @@ createBundle(graph)
 
 实现上和 ES5 的差异主要是使用 babylon 把文件内容变成抽象语法树，在对抽象语法树进行遍历，得到 dependencies。
 
-对文件进行结构化处理，得到一个对象 {id:xx, filename:xx, dependecies:xxx, code:xxx} ，再对处理好的文件进行解析，并打包到一个文件中
+对文件进行结构化处理，得到一个对象 {id:xx, filename:xx, dependecies:xxx, code:xxx} ，再对处理好的文件进行解析，并打包到一个文件中。
 
 ```
 const fs = require('fs');
@@ -643,6 +643,7 @@ bundle(graph);
 运行`node main.js`，生成`./dist/bundle.js`，进入到`dist`下，`node bundle.js`，输出结果`xiaoming is making webpack-es6`。
 
 **要点**
+
 代码转化成语法树
 
 AST 在线转换工具：https://astexplorer.net/
@@ -653,10 +654,17 @@ console.log(name)
 
 export default `hello ${name}`
 ```
+
+转换如下代码
+
 ```
 import {name} from './name.js'
 ```
+
 转化后，通过`source.value`拿到依赖的模块路径
+
+![转化后](./images/转化后.png)
+
 
 
 
