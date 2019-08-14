@@ -663,7 +663,7 @@ import {name} from './name.js'
 
 转化后，通过`source.value`拿到依赖的模块路径
 
-![转化后](./images/转化后.png)
+![转化后](https://github.com/pppcode/webpack-simple/raw/master/images/转换后.png)
 
 
 
