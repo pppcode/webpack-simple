@@ -32,7 +32,7 @@ console.log( message )
     
       1: [
         function(require, exports, module) { 
-        let action = 'making webpack'
+        let action = 'making webpack-es5'
 
 exports.action = action
     },
